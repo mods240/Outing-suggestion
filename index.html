@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日、明日、どこいこう？</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-0822883607725147" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.09);
+    --accent: #f0a500;
+    --accent2: #ff6b35;
+    --text: #f0ece4;
+    --muted: #8a8070;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(240,165,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(240,165,0,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 32px 20px 120px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 24px; }
+  .header-icon { font-size: 46px; display: block; margin-bottom: 8px; animation: bob 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  .header h1 { font-size: 21px; font-weight: 900; letter-spacing: 0.05em; color: var(--accent); line-height: 1.3; }
+  .header p  { font-size: 11px; color: var(--muted); margin-top: 5px; letter-spacing: 0.12em; }
+
+  /* Weather card */
+  .weather-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 68px;
+  }
+  .wx-icon { font-size: 34px; flex-shrink: 0; }
+  .wx-info { flex: 1; }
+  .wx-date { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .wx-main { font-size: 14px; font-weight: 700; color: var(--text); }
+  .wx-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .wx-temp { font-size: 26px; font-weight: 900; color: var(--accent); flex-shrink: 0; }
+  .wx-msg  { color: var(--muted); font-size: 12px; }
+
+  /* Progress */
+  .progress { display: flex; justify-content: center; gap: 7px; margin-bottom: 26px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); transition: all 0.3s; }
+  .dot.active { background: var(--accent); transform: scale(1.3); }
+  .dot.done   { background: var(--accent2); }
+
+  /* Steps */
+  .step { display: none; animation: fadeUp 0.35s ease; }
+  .step.active { display: block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .step h2 { font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 18px; color: var(--text); }
+
+  /* Grid */
+  .grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .card:hover { border-color: rgba(240,165,0,0.4); background: rgba(240,165,0,0.06); transform: translateY(-2px); }
+  .card.selected { border-color: var(--accent); background: rgba(240,165,0,0.12); box-shadow: 0 0 0 1px var(--accent); }
+  .card .emoji  { font-size: 26px; display: block; margin-bottom: 6px; }
+  .card .label  { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .card .sub    { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .card .badge  { font-size: 11px; color: var(--accent); margin-top: 4px; display: block; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 10px; justify-content: center; }
+  .btn { border: none; border-radius: 50px; padding: 12px 26px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn-primary:hover:not(:disabled) { transform: scale(1.04); box-shadow: 0 6px 24px rgba(240,165,0,0.35); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+  /* Input */
+  .input-wrap { margin-bottom: 20px; }
+  .input-wrap label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 7px; }
+  .input-wrap input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; color: var(--text); font-size: 14px; outline: none; font-family: inherit; transition: border-color 0.2s; }
+  .input-wrap input:focus { border-color: rgba(240,165,0,0.5); }
+  .input-wrap input::placeholder { color: var(--muted); }
+
+  /* Loading */
+  .loading-wrap { text-align: center; padding: 48px 0; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-wrap p { color: var(--muted); font-size: 14px; }
+
+  /* Error */
+  .error-msg { color: #ff6b6b; font-size: 13px; text-align: center; margin-top: 12px; padding: 10px 14px; background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); border-radius: 8px; }
+
+  /* Results */
+  .result-meta { text-align: center; margin-bottom: 18px; }
+  .result-meta .tags { font-size: 11px; color: var(--muted); margin-bottom: 6px; line-height: 1.8; }
+  .result-meta h2 { font-size: 18px; color: var(--accent); }
+
+  .suggestion { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 12px; animation: fadeUp 0.4s ease both; }
+  .suggestion:nth-child(2){animation-delay:.1s} .suggestion:nth-child(3){animation-delay:.2s}
+  .sug-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .sug-name { font-size: 16px; font-weight: 700; color: var(--text); }
+  .sug-type { font-size: 11px; color: var(--accent); margin-top: 2px; }
+  .save-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 2px 4px; transition: transform 0.15s; flex-shrink: 0; }
+  .save-btn:hover { transform: scale(1.2); }
+  .sug-desc { font-size: 13px; color: #b0a898; line-height: 1.7; margin-bottom: 10px; }
+  .sug-tip  { background: rgba(240,165,0,0.07); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 7px 11px; font-size: 12px; color: #d4b060; margin-bottom: 10px; }
+  .vibes    { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .vibe     { font-size: 11px; padding: 2px 9px; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); }
+  .sug-time { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+
+  .map-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 16px; background: rgba(240,165,0,0.1); border: 1px solid rgba(240,165,0,0.35);
+    border-radius: 10px; color: var(--accent); font-size: 13px; font-weight: 700;
+    font-family: inherit; cursor: pointer; text-decoration: none; transition: all 0.2s;
+    width: 100%; margin-bottom: 8px;
+  }
+  .map-btn:hover { background: rgba(240,165,0,0.2); transform: translateY(-1px); }
+
+  .question-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; color: var(--muted); font-size: 13px; font-weight: 700;
+    font-family: inherit; cursor: pointer; transition: all 0.2s; width: 100%;
+  }
+  .question-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+  /* Saved */
+  .saved-section { margin-top: 18px; background: rgba(240,165,0,0.05); border: 1px solid rgba(240,165,0,0.2); border-radius: 14px; padding: 14px; }
+  .saved-section h3 { font-size: 13px; color: var(--accent); margin-bottom: 8px; }
+  .saved-item { font-size: 13px; color: var(--text); padding: 3px 0; }
+
+  /* Location permission card */
+  .location-card {
+    background: linear-gradient(135deg, rgba(240,165,0,0.1), rgba(255,107,53,0.08));
+    border: 1px solid rgba(240,165,0,0.35);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 22px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .location-card-icon { font-size: 32px; flex-shrink: 0; margin-top: 2px; }
+  .location-card-body { flex: 1; }
+  .location-card-title { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .location-card-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+  .location-card-btns  { display: flex; gap: 8px; }
+  .btn-allow {
+    flex: 1; padding: 9px 12px; background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 700;
+    font-family: inherit; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-allow:hover { transform: scale(1.03); }
+  .btn-skip {
+    padding: 9px 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--muted); font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-skip:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* Streaming cards */
+  .stream-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 12px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .stream-card-name { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .stream-card-type { font-size: 11px; color: var(--accent); margin-bottom: 8px; }
+  .stream-card-desc { font-size: 13px; color: #b0a898; line-height: 1.7; }
+  .stream-card-skeleton {
+    height: 12px; background: rgba(255,255,255,0.06);
+    border-radius: 6px; margin: 6px 0;
+    animation: shimmer 1.2s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%,100% { opacity:0.4; } 50% { opacity:0.8; }
+  }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.75); align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #1a1f2e; border-radius: 20px 20px 0 0; padding: 22px 20px 40px; width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .modal-ttl  { font-size: 14px; font-weight: 700; color: var(--text); flex: 1; margin-right: 10px; }
+  .modal-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .modal-ta { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 11px 13px; color: var(--text); font-size: 14px; font-family: inherit; resize: none; height: 86px; outline: none; }
+  .modal-ta:focus { border-color: rgba(240,165,0,0.5); }
+  .modal-send { margin-top: 10px; width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 10px; padding: 12px; color: #fff; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .modal-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  .modal-answer { margin-top: 14px; background: rgba(240,165,0,0.07); border: 1px solid rgba(240,165,0,0.2); border-radius: 10px; padding: 14px; font-size: 14px; color: #d4b060; line-height: 1.75; white-space: pre-wrap; }
+
+  /* Search links */
+  .disclaimer { font-size: 11px; color: var(--muted); background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 10px; line-height: 1.6; }
+  .search-links { margin-top: 12px; }
+  .search-links-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .search-link { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; text-decoration: none; transition: border-color 0.2s; }
+  .search-link:hover { border-color: rgba(240,165,0,0.4); background: rgba(240,165,0,0.05); }
+  .search-link-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .search-link-body { flex: 1; overflow: hidden; }
+  .search-link-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .search-link-url  { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+  /* Ad */
+  .ad-banner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg); border-top: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 6px 0 10px; }
+  .ad-label  { font-size: 9px; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 4px; }
+  .ad-frame  { width: 320px; height: 50px; border: none; border-radius: 6px; background: rgba(255,255,255,0.03); display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <span class="header-icon">🗺️</span>
+    <h1>今日、明日、どこいこう？</h1>
+    <p>暇だけどやることない…を解決するアプリ</p>
+  </div>
+
+  <!-- Location permission card (shown before weather) -->
+  <div id="location-card" class="location-card">
+    <div class="location-card-icon">📍</div>
+    <div class="location-card-body">
+      <div class="location-card-title">現在地の天気を表示しますか？</div>
+      <div class="location-card-desc">位置情報を使うと、今いる場所のリアルタイム天気をもとにおでかけ先を提案できます。情報は天気取得のみに使用し、保存はしません。</div>
+      <div class="location-card-btns">
+        <button class="btn-allow" onclick="requestLocation()">📍 現在地を使う</button>
+        <button class="btn-skip"  onclick="skipLocation()">スキップ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="weather-card" id="weather-card" style="display:none">
+    <div class="wx-msg">📍 取得中…</div>
+  </div>
+
+  <div class="progress">
+    <div class="dot active" id="dot0"></div>
+    <div class="dot" id="dot1"></div>
+    <div class="dot" id="dot2"></div>
+    <div class="dot" id="dot3"></div>
+    <div class="dot" id="dot4"></div>
+  </div>
+
+  <!-- Step 0: Date -->
+  <div class="step active" id="step-date">
+    <h2>いつ行く？</h2>
+    <div class="grid grid-3" id="grid-date">
+      <div class="card" data-val="今日"   onclick="selectCard(this,'date')"><span class="label" style="font-size:15px;font-weight:900">今日</span><span class="badge" id="badge-today"></span></div>
+      <div class="card" data-val="明日"   onclick="selectCard(this,'date')"><span class="label" style="font-size:15px;font-weight:900">明日</span><span class="badge" id="badge-tomorrow"></span></div>
+      <div class="card" data-val="今週末" onclick="selectCard(this,'date')"><span class="label" style="font-size:15px;font-weight:900">今週末</span><span class="badge" id="badge-weekend"></span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-date" disabled onclick="goStep(1)">次へ →</button>
+    </div>
+  </div>
+
+  <!-- Step 1: Group -->
+  <div class="step" id="step-group">
+    <h2>だれと行く？</h2>
+    <div class="grid" id="grid-group">
+      <div class="card" data-val="ひとりで"     onclick="selectCard(this,'group')"><span class="emoji">🧍</span><span class="label">ひとりで</span><span class="sub">自分のペースで</span></div>
+      <div class="card" data-val="カップル"     onclick="selectCard(this,'group')"><span class="emoji">💑</span><span class="label">カップル</span><span class="sub">ふたりで</span></div>
+      <div class="card" data-val="家族・子連れ"  onclick="selectCard(this,'group')"><span class="emoji">👨‍👩‍👧</span><span class="label">家族・子連れ</span><span class="sub">みんなで</span></div>
+      <div class="card" data-val="友達グループ"  onclick="selectCard(this,'group')"><span class="emoji">👫</span><span class="label">友達グループ</span><span class="sub">わいわい</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(0)">← 戻る</button>
+      <button class="btn btn-primary" id="btn-group" disabled onclick="goStep(2)">次へ →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Mood -->
+  <div class="step" id="step-mood">
+    <h2>どんなおでかけがしたい？</h2>
+    <div class="grid grid-3" id="grid-mood">
+      <div class="card" data-val="リフレッシュしたい"   onclick="selectCard(this,'mood')"><span class="emoji">🌿</span><span class="label">リフレッシュ</span></div>
+      <div class="card" data-val="観光・名所めぐり"     onclick="selectCard(this,'mood')"><span class="emoji">🏯</span><span class="label">観光・名所</span></div>
+      <div class="card" data-val="人が少ない穴場へ"     onclick="selectCard(this,'mood')"><span class="emoji">🌾</span><span class="label">人が少ない穴場</span></div>
+      <div class="card" data-val="文化・芸術を楽しみたい" onclick="selectCard(this,'mood')"><span class="emoji">🎨</span><span class="label">文化・芸術</span></div>
+      <div class="card" data-val="美食を楽しみたい"     onclick="selectCard(this,'mood')"><span class="emoji">🍜</span><span class="label">グルメ</span></div>
+      <div class="card" data-val="体を動かしたい"       onclick="selectCard(this,'mood')"><span class="emoji">🏃</span><span class="label">アクティブ</span></div>
+      <div class="card" data-val="静かにのんびりしたい" onclick="selectCard(this,'mood')"><span class="emoji">📚</span><span class="label">のんびり</span></div>
+      <div class="card" data-val="冒険・非日常を味わいたい" onclick="selectCard(this,'mood')"><span class="emoji">⚡</span><span class="label">冒険・非日常</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(1)">← 戻る</button>
+      <button class="btn btn-primary" id="btn-mood" disabled onclick="goStep(3)">次へ →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Time -->
+  <div class="step" id="step-time">
+    <h2>どの時間帯に？</h2>
+    <div class="grid" id="grid-time">
+      <div class="card" data-val="午前中"   onclick="selectCard(this,'time')"><span class="emoji">🌅</span><span class="label">午前中</span></div>
+      <div class="card" data-val="午後"     onclick="selectCard(this,'time')"><span class="emoji">☀️</span><span class="label">午後</span></div>
+      <div class="card" data-val="夕方〜夜" onclick="selectCard(this,'time')"><span class="emoji">🌆</span><span class="label">夕方〜夜</span></div>
+      <div class="card" data-val="一日中"   onclick="selectCard(this,'time')"><span class="emoji">🌙</span><span class="label">一日中</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(2)">← 戻る</button>
+      <button class="btn btn-primary" id="btn-time" disabled onclick="goStep(4)">次へ →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Budget + Location -->
+  <div class="step" id="step-budget">
+    <h2>ひとりあたりの予算は？</h2>
+    <div class="grid grid-3" id="grid-budget">
+      <div class="card" data-val="無料"         onclick="selectCard(this,'budget')"><span class="emoji">🆓</span><span class="label">無料</span><span class="sub">0円</span></div>
+      <div class="card" data-val="2,000円以下"  onclick="selectCard(this,'budget')"><span class="emoji">💴</span><span class="label">2,000円以下</span><span class="sub">気軽に</span></div>
+      <div class="card" data-val="5,000円以下"  onclick="selectCard(this,'budget')"><span class="emoji">💵</span><span class="label">5,000円以下</span><span class="sub">ふつうに</span></div>
+      <div class="card" data-val="10,000円以下" onclick="selectCard(this,'budget')"><span class="emoji">💳</span><span class="label">10,000円以下</span><span class="sub">しっかり</span></div>
+      <div class="card" data-val="10,000円以上" onclick="selectCard(this,'budget')"><span class="emoji">✨</span><span class="label">10,000円以上</span><span class="sub">思い切って</span></div>
+    </div>
+    <div class="input-wrap">
+      <label>📍 エリアのヒント（任意）</label>
+      <input type="text" id="location" placeholder="例：大阪、渋谷、海の近く…">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(3)">← 戻る</button>
+      <button class="btn btn-primary" id="btn-budget" disabled onclick="fetchSuggestions()">提案してもらう ✨</button>
+    </div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Loading / Streaming -->
+  <div class="step" id="step-loading">
+    <div id="stream-header" style="text-align:center;margin-bottom:20px">
+      <div class="spinner" id="stream-spinner"></div>
+      <p id="stream-msg" style="color:var(--muted);font-size:14px;margin-top:12px">AIがおでかけ先を考えています…</p>
+    </div>
+    <div id="stream-cards"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="step" id="step-result">
+    <div class="result-meta">
+      <div class="tags" id="result-tags"></div>
+      <h2>おすすめのおでかけ先 🎉</h2>
+    </div>
+    <div id="suggestions-list"></div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="resetApp()">🔄 もう一度探す</button>
+    </div>
+    <div id="saved-section" class="saved-section" style="display:none">
+      <h3>❤️ 気になる場所</h3>
+      <div id="saved-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Question modal -->
+<div class="modal-overlay" id="q-modal">
+  <div class="modal-box">
+    <input type="hidden" id="modal-idx" value="0">
+    <div class="modal-head">
+      <div class="modal-ttl" id="modal-ttl"></div>
+      <button class="modal-close" onclick="closeQ()">✕</button>
+    </div>
+    <textarea class="modal-ta" id="modal-ta" placeholder="例：雨でも楽しめますか？　子どもと行けますか？　近くにご飯屋さんはありますか？"></textarea>
+    <button class="modal-send" id="modal-send" onclick="sendQ()">質問する →</button>
+    <div id="modal-ans"></div>
+  </div>
+</div>
+
+<!-- Ad banner -->
+<div class="ad-banner">
+  <div class="ad-label">広告</div>
+  <iframe class="ad-frame" src="about:blank" scrolling="no"></iframe>
+</div>
+
+<script>
+const state = {
+  date:null, group:null, mood:null, time:null, budget:null,
+  saved:[], suggestions:[],
+  wx:{ today:null, tomorrow:null, weekend:null },
+  geo:{ lat:34.6937, lon:135.5023, name:'大阪' }
+};
+
+const MONTHS = [null,'winter','winter','spring','spring','spring','summer','summer','summer','autumn','autumn','autumn','winter'];
+const SEASON = { spring:'春', summer:'夏', autumn:'秋', winter:'冬' }[MONTHS[new Date().getMonth()+1]];
+
+const WX_LABEL = {0:'快晴',1:'晴れ',2:'晴れ時々曇り',3:'曇り',45:'霧',48:'霧',51:'小雨',53:'雨',55:'強雨',61:'小雨',63:'雨',65:'強雨',71:'小雪',73:'雪',75:'大雪',80:'にわか雨',81:'雨',82:'強いにわか雨',95:'雷雨',96:'雷雨',99:'雷雨'};
+const WX_ICON  = {0:'☀️',1:'🌤️',2:'🌤️',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌧️',55:'🌧️',61:'🌦️',63:'🌧️',65:'🌧️',71:'🌨️',73:'❄️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',95:'⛈️',96:'⛈️',99:'⛈️'};
+
+// ── Weather ──────────────────────────────────────────────
+function requestLocation() {
+  const card = document.getElementById('location-card');
+  const btn = card.querySelector('.btn-allow');
+  btn.textContent = '取得中…';
+  btn.disabled = true;
+  if (!navigator.geolocation) { skipLocation(); return; }
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      state.geo.lat = p.coords.latitude;
+      state.geo.lon = p.coords.longitude;
+      state.geo.name = '現在地';
+      card.style.display = 'none';
+      document.getElementById('weather-card').style.display = 'flex';
+      fetchWeather();
+    },
+    () => {
+      // 拒否された場合もスキップ扱いでデフォルト天気を表示
+      skipLocation();
+    },
+    { timeout: 8000 }
+  );
+}
+
+function skipLocation() {
+  document.getElementById('location-card').style.display = 'none';
+  document.getElementById('weather-card').style.display = 'flex';
+  fetchWeather(); // default geo (大阪)
+}
+
+async function initWeather() {
+  // 何もしない。起動時は許可カードを表示するだけ
+}
+
+async function fetchWeather() {
+  try {
+    const {lat,lon} = state.geo;
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&forecast_days=7');
+    const d = await r.json();
+    const dy = d.daily;
+    const dow = new Date().getDay();
+    const wkIdx = Math.min((6 - dow + 7) % 7 || 7, 6);
+    state.wx.today    = { code:dy.weather_code[0], max:Math.round(dy.temperature_2m_max[0]), min:Math.round(dy.temperature_2m_min[0]), rain:dy.precipitation_probability_max[0] };
+    state.wx.tomorrow = { code:dy.weather_code[1], max:Math.round(dy.temperature_2m_max[1]), min:Math.round(dy.temperature_2m_min[1]), rain:dy.precipitation_probability_max[1] };
+    state.wx.weekend  = { code:dy.weather_code[wkIdx], max:Math.round(dy.temperature_2m_max[wkIdx]), min:Math.round(dy.temperature_2m_min[wkIdx]), rain:dy.precipitation_probability_max[wkIdx] };
+    showWeather('today');
+    updateBadges();
+  } catch(e) {
+    document.getElementById('weather-card').innerHTML = '<div class="wx-msg">⚠️ 天気情報を取得できませんでした</div>';
+  }
+}
+
+function showWeather(key) {
+  const w = state.wx[key]; if (!w) return;
+  const lbl = {today:'今日',tomorrow:'明日',weekend:'今週末'}[key];
+  document.getElementById('weather-card').innerHTML =
+    '<div class="wx-icon">'+(WX_ICON[w.code]||'🌡️')+'</div>'+
+    '<div class="wx-info">'+
+      '<div class="wx-date">'+lbl+'の天気（'+state.geo.name+'周辺）</div>'+
+      '<div class="wx-main">'+(WX_LABEL[w.code]||'—')+'</div>'+
+      '<div class="wx-sub">降水確率 '+w.rain+'%　最低'+w.min+'°</div>'+
+    '</div>'+
+    '<div class="wx-temp">'+w.max+'°</div>';
+}
+
+function updateBadges() {
+  ['today','tomorrow','weekend'].forEach(key => {
+    const w = state.wx[key]; if (!w) return;
+    const badge = document.getElementById('badge-'+key);
+    if (badge) badge.textContent = (WX_ICON[w.code]||'') + ' ' + w.max + '° / ' + w.min + '°';
+  });
+}
+
+// ── Navigation ───────────────────────────────────────────
+function selectCard(el, type) {
+  el.closest('.grid').querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state[type] = el.dataset.val;
+  const btns = {date:'btn-date',group:'btn-group',mood:'btn-mood',time:'btn-time',budget:'btn-budget'};
+  document.getElementById(btns[type]).disabled = false;
+  if (type === 'date') {
+    const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
+    showWeather(kmap[state.date] || 'today');
+  }
+}
+
+function goStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  ['step-date','step-group','step-mood','step-time','step-budget'][n] && document.getElementById(['step-date','step-group','step-mood','step-time','step-budget'][n]).classList.add('active');
+  document.querySelectorAll('.dot').forEach((d,i) => { d.classList.toggle('done', i<n); d.classList.toggle('active', i===n); });
+  window.scrollTo(0,0);
+}
+
+// ── API call (streaming) ─────────────────────────────────
+async function fetchSuggestions() {
+  document.getElementById('error-msg').innerHTML = '';
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-loading').classList.add('active');
+  document.getElementById('stream-cards').innerHTML = '';
+  document.getElementById('stream-spinner').style.display = 'block';
+  document.getElementById('stream-msg').textContent = 'AIがおでかけ先を考えています…';
+
+  const loc = document.getElementById('location').value.trim();
+  const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
+  const wx = state.wx[kmap[state.date]];
+  const wxStr = wx ? (WX_LABEL[wx.code]||'不明')+'・最高'+wx.max+'°・降水確率'+wx.rain+'%' : '不明';
+
+  const prompt =
+    'あなたはおでかけ提案の専門家です。以下の条件でおでかけ先を3つ提案してください。\n'+
+    '条件：\n'+
+    '- 日程: '+state.date+'\n'+
+    '- 天気: '+wxStr+'\n'+
+    '- メンバー: '+state.group+'\n'+
+    '- 気分: '+state.mood+'\n'+
+    '- 時間帯: '+state.time+'\n'+
+    '- 予算（ひとりあたり）: '+state.budget+'\n'+
+    '- 季節: '+SEASON+'\n'+
+    '- エリア: '+(loc||'指定なし（日本国内）')+'\n\n'+
+    '天気を考慮して提案してください（雨なら屋内寄りなど）。\n'+
+    '以下のJSON配列のみ返してください。説明・前置き・コードブロック記号は不要です。\n'+
+    '[{"name":"場所名","type":"カテゴリ","description":"魅力と'+state.group+'で行くポイント（80字以内）","tip":"'+state.group+'ならではの楽しみ方（40字以内）","vibes":["タグ1","タグ2","タグ3"],"bestTime":"おすすめ時間帯（20字以内）"}]';
+
+  try {
+    const res = await fetch('/api/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        stream:true,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'APIエラー '+res.status); }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulated = '';
+    let shownCount = 0;
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream:true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(data);
+          if (evt.type === 'content_block_delta' && evt.delta?.text) {
+            accumulated += evt.delta.text;
+            // 新しいスポットが見つかったら即座にプレビュー表示
+            const shown = tryShowStreamCards(accumulated, shownCount);
+            if (shown > shownCount) {
+              shownCount = shown;
+              if (shownCount === 1) {
+                document.getElementById('stream-spinner').style.display = 'none';
+                document.getElementById('stream-msg').textContent = '提案を生成中…';
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
+    // 最終パース
+    let js = accumulated;
+    const f = accumulated.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) js=f[1];
+    else { const a = accumulated.match(/\[[\s\S]*\]/); if (a) js=a[0]; }
+    let list; try { list=JSON.parse(js.trim()); } catch(e){ throw new Error('JSONパース失敗'); }
+    if (!Array.isArray(list)||!list.length) throw new Error('提案リストが空です');
+    state.suggestions = list;
+    renderResults(list);
+
+  } catch(e) {
+    document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+    document.getElementById('step-budget').classList.add('active');
+    document.getElementById('error-msg').innerHTML = '<div class="error-msg">❌ '+esc(e.message)+'</div>';
+  }
+}
+
+// ストリーム中に完成したスポットを即座にカード表示
+function tryShowStreamCards(text, alreadyShown) {
+  // "name" フィールドが見つかるたびにカードを表示
+  const nameMatches = [...text.matchAll(/"name"\s*:\s*"([^"]+)"/g)];
+  const typeMatches = [...text.matchAll(/"type"\s*:\s*"([^"]+)"/g)];
+  const descMatches = [...text.matchAll(/"description"\s*:\s*"([^"]+)"/g)];
+  const container = document.getElementById('stream-cards');
+
+  for (let i = alreadyShown; i < nameMatches.length; i++) {
+    const name = nameMatches[i]?.[1] || '';
+    const type = typeMatches[i]?.[1] || '';
+    const desc = descMatches[i]?.[1] || '';
+    const card = document.createElement('div');
+    card.className = 'stream-card';
+    card.id = 'stream-card-'+i;
+    card.innerHTML =
+      '<div class="stream-card-name">'+esc(name)+'</div>'+
+      '<div class="stream-card-type">📌 '+esc(type)+'</div>'+
+      (desc
+        ? '<div class="stream-card-desc">'+esc(desc)+'</div>'
+        : '<div class="stream-card-skeleton" style="width:90%"></div><div class="stream-card-skeleton" style="width:70%"></div>'
+      );
+    container.appendChild(card);
+  }
+  return nameMatches.length;
+}
+
+// ── Render ───────────────────────────────────────────────
+function renderResults(list) {
+  const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
+  const wx = state.wx[kmap[state.date]];
+  const wxLine = wx ? (WX_ICON[wx.code]||'')+'&nbsp;'+(WX_LABEL[wx.code]||'')+'&nbsp;'+wx.max+'°&nbsp;(降水'+wx.rain+'%)' : '';
+  document.getElementById('result-tags').innerHTML =
+    '<strong>'+state.date+'</strong>&nbsp;'+wxLine+'<br>'+
+    state.group+' · '+state.mood+' · '+state.time+' · '+state.budget+' · '+SEASON;
+
+  const c = document.getElementById('suggestions-list'); c.innerHTML='';
+  list.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='suggestion';
+    d.innerHTML=
+      '<div class="sug-head">'+
+        '<div><div class="sug-name">'+esc(s.name)+'</div><div class="sug-type">📌 '+esc(s.type)+'</div></div>'+
+        '<button class="save-btn" id="save-'+i+'" onclick="toggleSave('+i+',\''+esc(s.name)+'\')">🤍</button>'+
+      '</div>'+
+      '<div class="sug-desc">'+esc(s.description)+'</div>'+
+      '<div class="sug-tip">💡 '+esc(s.tip)+'</div>'+
+      '<div class="vibes">'+(s.vibes||[]).map(v=>'<span class="vibe">'+esc(v)+'</span>').join('')+'</div>'+
+      '<div class="sug-time">⏰ '+esc(s.bestTime)+'</div>'+
+      '<a class="map-btn" href="https://www.google.com/maps/search/'+encodeURIComponent(s.name)+'" target="_blank" rel="noopener">🗺️ Google マップで開く</a>'+
+      '<button class="question-btn" onclick="openQ('+i+')">💬 このスポットに質問する</button>';
+    c.appendChild(d);
+  });
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-result').classList.add('active');
+  document.querySelectorAll('.dot').forEach(d=>{d.classList.add('done');d.classList.remove('active');});
+  window.scrollTo(0,0);
+}
+
+// ── Save ─────────────────────────────────────────────────
+function toggleSave(i, name) {
+  const btn = document.getElementById('save-'+i);
+  if (state.saved.includes(name)) { state.saved=state.saved.filter(n=>n!==name); btn.textContent='🤍'; }
+  else { state.saved.push(name); btn.textContent='❤️'; }
+  const sec=document.getElementById('saved-section');
+  sec.style.display=state.saved.length?'block':'none';
+  document.getElementById('saved-list').innerHTML=state.saved.map(n=>'<div class="saved-item">· '+esc(n)+'</div>').join('');
+}
+
+// ── Question modal ────────────────────────────────────────
+function openQ(idx) {
+  const s=state.suggestions[idx];
+  document.getElementById('modal-ttl').textContent='💬 '+s.name+' について質問';
+  document.getElementById('modal-ta').value='';
+  document.getElementById('modal-ans').innerHTML='';
+  document.getElementById('modal-idx').value=idx;
+  document.getElementById('modal-send').disabled=false;
+  document.getElementById('modal-send').textContent='質問する →';
+  document.getElementById('q-modal').classList.add('open');
+}
+function closeQ() { document.getElementById('q-modal').classList.remove('open'); }
+document.getElementById('q-modal').addEventListener('click', e=>{ if(e.target===e.currentTarget)closeQ(); });
+
+async function sendQ() {
+  const idx=parseInt(document.getElementById('modal-idx').value);
+  const s=state.suggestions[idx];
+  const q=document.getElementById('modal-ta').value.trim();
+  if (!q) return;
+  const btn=document.getElementById('modal-send');
+  btn.disabled=true; btn.textContent='送信中…';
+  document.getElementById('modal-ans').innerHTML='<div style="text-align:center;padding:16px 0"><div class="spinner" style="width:24px;height:24px;margin:0 auto 10px"></div><p style="color:var(--muted);font-size:13px">回答中…</p></div>';
+
+  const kmap={'今日':'today','明日':'tomorrow','今週末':'weekend'};
+  const wx=state.wx[kmap[state.date]];
+  const wxStr=wx?(WX_LABEL[wx.code]||'')+'・最高'+wx.max+'°':'';
+
+  const prompt=
+    'おでかけスポット「'+s.name+'」（'+s.type+'）について質問に答えてください。\n'+
+    '条件: '+state.date+'・'+wxStr+'・'+state.group+'・予算'+state.budget+'・エリア:'+state.geo.name+'\n'+
+    '質問: '+q+'\n\n'+
+    '以下のJSON形式のみで返してください（前置き・説明不要）:\n'+
+    '{\n'+
+    '  "answer": "質問への回答（150字以内）",\n'+
+    '  "links": [\n'+
+    '    {"name":"関連スポットや参考サイト名","url":"https://...","icon":"絵文字1文字"},\n'+
+    '    {"name":"関連スポットや参考サイト名","url":"https://...","icon":"絵文字1文字"},\n'+
+    '    {"name":"関連スポットや参考サイト名","url":"https://...","icon":"絵文字1文字"}\n'+
+    '  ]\n'+
+    '}\n'+
+    'linksはGoogle Maps、食べログ、じゃらん、ぐるなび、公式サイト等の実在しそうなURLを3件。URLは実在する可能性が高い形式で。';
+
+  try {
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const raw=(data.content||[]).map(b=>b.type==='text'?b.text:'').join('');
+
+    let answer='', links=[];
+    try {
+      const f=raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const js = f ? f[1] : (raw.match(/\{[\s\S]*\}/) || ['{}'])[0];
+      const parsed=JSON.parse(js.trim());
+      answer=parsed.answer||'';
+      links=parsed.links||[];
+    } catch(e){ answer=raw; }
+
+    let html='<div class="modal-answer">'+esc(answer)+'</div>';
+    html+='<div class="disclaimer">⚠️ 以下はAIによるご提案です。情報は変更されている場合がありますので、訪問前に必ずご確認ください。</div>';
+    if (links.length>0) {
+      html+='<div class="search-links"><div class="search-links-title">🔗 関連スポット・参考リンク</div>';
+      links.forEach(l=>{
+        const domain = (() => { try { return new URL(l.url).hostname; } catch(e){ return l.url; } })();
+        html+='<a class="search-link" href="'+esc(l.url)+'" target="_blank" rel="noopener">'+
+          '<span class="search-link-icon">'+esc(l.icon||'🔗')+'</span>'+
+          '<span class="search-link-body">'+
+            '<span class="search-link-name">'+esc(l.name)+'</span>'+
+            '<span class="search-link-url">'+esc(domain)+'</span>'+
+          '</span>'+
+        '</a>';
+      });
+      html+='</div>';
+    }
+    document.getElementById('modal-ans').innerHTML=html;
+  } catch(e) {
+    document.getElementById('modal-ans').innerHTML='<div class="error-msg">❌ '+esc(e.message)+'</div>';
+  } finally { btn.disabled=false; btn.textContent='質問する →'; }
+}
+
+// ── Reset ────────────────────────────────────────────────
+function resetApp() {
+  Object.assign(state,{date:null,group:null,mood:null,time:null,budget:null,saved:[],suggestions:[]});
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('selected'));
+  ['btn-date','btn-group','btn-mood','btn-time','btn-budget'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('location').value='';
+  document.getElementById('error-msg').innerHTML='';
+  document.getElementById('saved-section').style.display='none';
+  // リセット時は天気カードをそのまま維持（再許可は不要）
+  if (document.getElementById('weather-card').style.display !== 'none') {
+    showWeather('today');
+  }
+  goStep(0);
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+initWeather();
+</script>
+</body>
+</html>
