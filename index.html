@@ -259,6 +259,19 @@
   .share-fb   { background: #1877F2; color: #fff; }
   .share-copy { background: var(--surface); border: 1px solid var(--border) !important; color: var(--text); }
 
+  /* Language selector */
+  .lang-selector {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 20px;
+  }
+  .lang-btn {
+    padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); font-size: 12px;
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+  .lang-btn.active { border-color: var(--accent); background: rgba(240,165,0,0.12); color: var(--accent); }
+  .lang-btn:hover { border-color: rgba(240,165,0,0.4); color: var(--text); }
+
   /* Ad */
   .ad-banner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg); border-top: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 6px 0 10px; }
   .ad-label  { font-size: 9px; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 4px; }
@@ -275,6 +288,17 @@
     </div>
     <p>暇だけどやることない…を解決するアプリ</p>
 
+  </div>
+
+  <!-- Language selector -->
+  <div class="lang-selector" id="lang-selector">
+    <button class="lang-btn active" onclick="setLang('ja')">🇯🇵 日本語</button>
+    <button class="lang-btn" onclick="setLang('en')">🇺🇸 EN</button>
+    <button class="lang-btn" onclick="setLang('zh')">🇨🇳 中文</button>
+    <button class="lang-btn" onclick="setLang('ko')">🇰🇷 한국어</button>
+    <button class="lang-btn" onclick="setLang('fr')">🇫🇷 FR</button>
+    <button class="lang-btn" onclick="setLang('de')">🇩🇪 DE</button>
+    <button class="lang-btn" onclick="setLang('es')">🇪🇸 ES</button>
   </div>
 
   <!-- Location permission card (shown before weather) -->
@@ -561,7 +585,7 @@ async function fetchSuggestions() {
   document.getElementById('step-loading').classList.add('active');
   document.getElementById('stream-cards').innerHTML = '';
   document.getElementById('stream-spinner').style.display = 'block';
-  document.getElementById('stream-msg').textContent = 'AIがおでかけ先を考えています…';
+  document.getElementById('stream-msg').textContent = T('loading');
 
   const loc = document.getElementById('location').value.trim();
   const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
@@ -580,13 +604,16 @@ async function fetchSuggestions() {
     '- 時間帯: '+state.time+'\n'+
     '- 予算（ひとりあたり）: '+state.budget+'\n'+
     '- 季節: '+SEASON+'\n'+
-    '- エリア: '+areaStr+'\n\n'+
+    '- エリア（地域）: '+areaStr+'\n'+
+    '- 回答言語: '+T('promptLang')+'\n\n'+
     '天気（'+wxStr+'）を必ず考慮してください。\n'+
     '・雨・強雨の場合は屋内スポットを中心に提案し、descriptionに「雨でも楽しめる理由」を自然に含めてください。\n'+
     '・晴れ・快晴の場合は屋外スポットも積極的に提案し、descriptionに「晴れだからこそ楽しい理由」を自然に含めてください。\n'+
     '・曇りや不安定な天気の場合は屋内・屋外どちらも提案しつつ、tipに天気への対策を含めてください。\n'+
+    '【重要】'+T('promptOnly')+'\n'+
+    '場所名は実在する具体的な日本の施設名・スポット名にしてください（例：大阪城、道頓堀、海遊館）。\n'+
     '以下のJSON配列のみ返してください。説明・前置き・コードブロック記号は不要です。\n'+
-    '[{"name":"場所名","type":"カテゴリ","description":"魅力と'+state.group+'で行くポイント（80字以内）","tip":"'+state.group+'ならではの楽しみ方（40字以内）","vibes":["タグ1","タグ2","タグ3"],"bestTime":"おすすめ時間帯（20字以内）"}]';
+    '[{"name":"具体的な場所名（例：大阪城公園）","type":"カテゴリ","description":"魅力と'+state.group+'で行くポイント（80字以内・日本語のみ）","tip":"'+state.group+'ならではの楽しみ方（40字以内・日本語のみ）","vibes":["タグ1","タグ2","タグ3"],"bestTime":"おすすめ時間帯（20字以内）"}]';
 
   try {
     const res = await fetch('/api/chat', {
@@ -677,8 +704,8 @@ function renderResults(list) {
       '<div class="sug-tip">💡 '+esc(s.tip)+'</div>'+
       '<div class="vibes">'+(s.vibes||[]).map(v=>'<span class="vibe">'+esc(v)+'</span>').join('')+'</div>'+
       '<div class="sug-time">⏰ '+esc(s.bestTime)+'</div>'+
-      '<a class="map-btn" href="https://www.google.com/maps/search/'+encodeURIComponent(s.name)+'" target="_blank" rel="noopener">🗺️ Google マップで開く</a>'+
-      '<button class="question-btn" onclick="openQ('+i+')">💬 このスポットに質問する</button>';
+      '<a class="map-btn" href="https://www.google.com/maps/search/'+encodeURIComponent(s.name)+'" target="_blank" rel="noopener">'+T('mapBtn')+'</a>'+
+      '<button class="question-btn" onclick="openQ('+i+')">'+T('questionBtn')+'</button>';
     c.appendChild(d);
   });
   document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
@@ -799,7 +826,7 @@ function buildShareText(spotName) {
   const wxLabel = wx ? (WX_LABEL[wx.code]||'') : '';
   const tags = '#今日どこいこう #おでかけ #行ってきた';
   const url = 'https://outing-suggestion.vercel.app';
-  return '🗺️「' + spotName + '」に行ってきました！\n' +
+  return (currentLang==='ja' ? '🗺️「' + spotName + '」に行ってきました！' : '🗺️ I visited "' + spotName + '"!') + '\n' +
     (wxLabel ? wxLabel + '・' : '') +
     state.group + '・' + state.time + '・' + state.budget + '\n\n' +
     'AIがおでかけ先を提案してくれるアプリで見つけました👇\n' +
@@ -832,6 +859,212 @@ function copyShareText() {
     setTimeout(() => btn.textContent = '📋 テキストをコピー', 2000);
   });
 }
+
+// ── Language / i18n ──────────────────────────────────────
+const LANGS = {
+  ja: {
+    title: '今日、明日、どこいこう？', subtitle: '暇だけどやることない…を解決するアプリ',
+    locTitle: '現在地の天気を表示しますか？',
+    locDesc: '位置情報を使うと、今いる場所のリアルタイム天気をもとにおでかけ先を提案できます。情報は天気取得のみに使用し、保存はしません。',
+    locAllow: '📍 現在地を使う', locSkip: 'スキップ',
+    stepDate: 'いつ行く？', today: '今日', tomorrow: '明日', weekend: '今週末',
+    stepGroup: 'だれと行く？', stepMood: 'どんなおでかけがしたい？',
+    stepTime: 'どの時間帯に？', stepBudget: 'ひとりあたりの予算は？',
+    morning: '午前中', afternoon: '午後', evening: '夕方〜夜', allday: '一日中',
+    areaLabel: '📍 エリアのヒント（任意）', areaPlaceholder: '例：大阪、渋谷、海の近く…',
+    suggest: '提案してもらう ✨', back: '← 戻る', next: '次へ →',
+    loading: 'AIがおでかけ先を考えています…', resultTitle: 'おすすめのおでかけ先 🎉',
+    reset: '🔄 もう一度探す', shareTitle: '📣 行ってきた！をシェア',
+    shareDesc: '写真と一緒に投稿して、おでかけの思い出をシェアしよう！',
+    mapBtn: '🗺️ Google マップで開く', questionBtn: '💬 このスポットに質問する',
+    questionPlaceholder: '例：雨でも楽しめますか？　子どもと行けますか？',
+    questionSend: '質問する →', wxFetching: '📍 取得中…',
+    promptLang: '日本語', promptOnly: '必ず日本語のみで回答してください。英語・韓国語・中国語は使わないでください。',
+  },
+  en: {
+    title: 'Where to go today?', subtitle: 'Solve your "nothing to do" moments',
+    locTitle: 'Show weather for your location?',
+    locDesc: 'Using your location, we can suggest outings based on real-time weather near you. Location is only used for weather and is never stored.',
+    locAllow: '📍 Use my location', locSkip: 'Skip',
+    stepDate: 'When?', today: 'Today', tomorrow: 'Tomorrow', weekend: 'This weekend',
+    stepGroup: 'Who are you going with?', stepMood: 'What kind of outing?',
+    stepTime: 'What time of day?', stepBudget: 'Budget per person?',
+    morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', allday: 'All day',
+    areaLabel: '📍 Area hint (optional)', areaPlaceholder: 'e.g. Tokyo, Osaka, near the sea…',
+    suggest: 'Get suggestions ✨', back: '← Back', next: 'Next →',
+    loading: 'AI is thinking of places…', resultTitle: 'Recommended outings 🎉',
+    reset: '🔄 Search again', shareTitle: '📣 Share your visit!',
+    shareDesc: 'Post with a photo and share your outing memory!',
+    mapBtn: '🗺️ Open in Google Maps', questionBtn: '💬 Ask about this spot',
+    questionPlaceholder: 'e.g. Can we go in the rain? Good for kids?',
+    questionSend: 'Ask →', wxFetching: '📍 Fetching…',
+    promptLang: 'English', promptOnly: 'Reply only in English.',
+  },
+  zh: {
+    title: '今天去哪里？', subtitle: '解决"无聊没事做"的烦恼',
+    locTitle: '显示当前位置的天气？',
+    locDesc: '使用位置信息，可根据您所在地的实时天气推荐出行目的地。位置信息仅用于获取天气，不会被保存。',
+    locAllow: '📍 使用当前位置', locSkip: '跳过',
+    stepDate: '什么时候去？', today: '今天', tomorrow: '明天', weekend: '本周末',
+    stepGroup: '和谁一起去？', stepMood: '想要什么样的出行？',
+    stepTime: '什么时间段？', stepBudget: '每人预算？',
+    morning: '上午', afternoon: '下午', evening: '傍晚～夜晚', allday: '全天',
+    areaLabel: '📍 地区提示（可选）', areaPlaceholder: '例：大阪、东京、海边…',
+    suggest: '获取推荐 ✨', back: '← 返回', next: '下一步 →',
+    loading: 'AI正在思考目的地…', resultTitle: '推荐出行目的地 🎉',
+    reset: '🔄 重新搜索', shareTitle: '📣 分享你的出行！',
+    shareDesc: '和照片一起发布，分享你的出行回忆！',
+    mapBtn: '🗺️ 在谷歌地图打开', questionBtn: '💬 询问这个地方',
+    questionPlaceholder: '例：下雨也可以去吗？适合孩子吗？',
+    questionSend: '提问 →', wxFetching: '📍 获取中…',
+    promptLang: '中文', promptOnly: '请只用中文回答。',
+  },
+  ko: {
+    title: '오늘 어디 갈까요?', subtitle: '"심심한데 할 게 없다"를 해결하는 앱',
+    locTitle: '현재 위치의 날씨를 표시할까요?',
+    locDesc: '위치 정보를 사용하면 현재 위치의 실시간 날씨를 기반으로 외출 장소를 추천해 드립니다. 위치 정보는 날씨 조회에만 사용되며 저장되지 않습니다.',
+    locAllow: '📍 현재 위치 사용', locSkip: '건너뛰기',
+    stepDate: '언제 갈까요?', today: '오늘', tomorrow: '내일', weekend: '이번 주말',
+    stepGroup: '누구와 함께?', stepMood: '어떤 외출을 원하세요?',
+    stepTime: '어느 시간대?', stepBudget: '1인당 예산?',
+    morning: '오전', afternoon: '오후', evening: '저녁~밤', allday: '하루 종일',
+    areaLabel: '📍 지역 힌트 (선택)', areaPlaceholder: '예: 서울, 부산, 바다 근처…',
+    suggest: '추천받기 ✨', back: '← 뒤로', next: '다음 →',
+    loading: 'AI가 장소를 고르는 중…', resultTitle: '추천 외출지 🎉',
+    reset: '🔄 다시 검색', shareTitle: '📣 다녀왔어요! 공유',
+    shareDesc: '사진과 함께 게시하고 외출 추억을 공유해보세요!',
+    mapBtn: '🗺️ 구글 지도로 열기', questionBtn: '💬 이 장소에 질문하기',
+    questionPlaceholder: '예: 비가 와도 즐길 수 있나요? 아이와 함께 가도 되나요?',
+    questionSend: '질문하기 →', wxFetching: '📍 불러오는 중…',
+    promptLang: '한국어', promptOnly: '반드시 한국어로만 답변해 주세요.',
+  },
+  fr: {
+    title: 'Où aller aujourd'hui?', subtitle: 'Résolvez votre "rien à faire"',
+    locTitle: 'Afficher la météo de votre position?',
+    locDesc: 'En utilisant votre position, nous pouvons suggérer des sorties basées sur la météo en temps réel près de chez vous.',
+    locAllow: '📍 Utiliser ma position', locSkip: 'Ignorer',
+    stepDate: 'Quand?', today: 'Aujourd'hui', tomorrow: 'Demain', weekend: 'Ce week-end',
+    stepGroup: 'Avec qui?', stepMood: 'Quel type de sortie?',
+    stepTime: 'Quelle heure?', stepBudget: 'Budget par personne?',
+    morning: 'Matin', afternoon: 'Après-midi', evening: 'Soir', allday: 'Toute la journée',
+    areaLabel: '📍 Indice de zone (optionnel)', areaPlaceholder: 'ex: Paris, Lyon, bord de mer…',
+    suggest: 'Obtenir des suggestions ✨', back: '← Retour', next: 'Suivant →',
+    loading: "L'IA cherche des endroits…", resultTitle: 'Sorties recommandées 🎉',
+    reset: '🔄 Nouvelle recherche', shareTitle: '📣 Partagez votre visite!',
+    shareDesc: 'Publiez avec une photo et partagez votre souvenir!',
+    mapBtn: '🗺️ Ouvrir dans Google Maps', questionBtn: '💬 Poser une question',
+    questionPlaceholder: 'ex: Peut-on y aller sous la pluie?',
+    questionSend: 'Envoyer →', wxFetching: '📍 Chargement…',
+    promptLang: 'français', promptOnly: 'Répondez uniquement en français.',
+  },
+  de: {
+    title: 'Wohin heute?', subtitle: 'Löse dein "nichts zu tun"-Problem',
+    locTitle: 'Wetter für deinen Standort anzeigen?',
+    locDesc: 'Mit deinem Standort können wir Ausflüge basierend auf dem Echtzeit-Wetter in deiner Nähe vorschlagen.',
+    locAllow: '📍 Standort verwenden', locSkip: 'Überspringen',
+    stepDate: 'Wann?', today: 'Heute', tomorrow: 'Morgen', weekend: 'Dieses Wochenende',
+    stepGroup: 'Mit wem?', stepMood: 'Was für ein Ausflug?',
+    stepTime: 'Welche Tageszeit?', stepBudget: 'Budget pro Person?',
+    morning: 'Morgen', afternoon: 'Nachmittag', evening: 'Abend', allday: 'Den ganzen Tag',
+    areaLabel: '📍 Gebietshinweis (optional)', areaPlaceholder: 'z.B. Berlin, München, am Meer…',
+    suggest: 'Vorschläge bekommen ✨', back: '← Zurück', next: 'Weiter →',
+    loading: 'KI sucht nach Orten…', resultTitle: 'Empfohlene Ausflüge 🎉',
+    reset: '🔄 Erneut suchen', shareTitle: '📣 Teile deinen Besuch!',
+    shareDesc: 'Poste mit einem Foto und teile deine Erinnerung!',
+    mapBtn: '🗺️ In Google Maps öffnen', questionBtn: '💬 Diese Stelle fragen',
+    questionPlaceholder: 'z.B. Geht das auch im Regen?',
+    questionSend: 'Fragen →', wxFetching: '📍 Laden…',
+    promptLang: 'Deutsch', promptOnly: 'Antworte nur auf Deutsch.',
+  },
+  es: {
+    title: '¿A dónde ir hoy?', subtitle: 'Resuelve tu "no hay nada que hacer"',
+    locTitle: '¿Mostrar el tiempo de tu ubicación?',
+    locDesc: 'Usando tu ubicación, podemos sugerir salidas basadas en el tiempo en tiempo real cerca de ti.',
+    locAllow: '📍 Usar mi ubicación', locSkip: 'Omitir',
+    stepDate: '¿Cuándo?', today: 'Hoy', tomorrow: 'Mañana', weekend: 'Este fin de semana',
+    stepGroup: '¿Con quién?', stepMood: '¿Qué tipo de salida?',
+    stepTime: '¿A qué hora?', stepBudget: '¿Presupuesto por persona?',
+    morning: 'Mañana', afternoon: 'Tarde', evening: 'Noche', allday: 'Todo el día',
+    areaLabel: '📍 Pista de zona (opcional)', areaPlaceholder: 'ej: Madrid, Barcelona, cerca del mar…',
+    suggest: 'Obtener sugerencias ✨', back: '← Atrás', next: 'Siguiente →',
+    loading: 'La IA está buscando lugares…', resultTitle: 'Salidas recomendadas 🎉',
+    reset: '🔄 Buscar de nuevo', shareTitle: '📣 ¡Comparte tu visita!',
+    shareDesc: '¡Publica con una foto y comparte tu recuerdo!',
+    mapBtn: '🗺️ Abrir en Google Maps', questionBtn: '💬 Preguntar sobre este lugar',
+    questionPlaceholder: 'ej: ¿Se puede ir con lluvia?',
+    questionSend: 'Preguntar →', wxFetching: '📍 Cargando…',
+    promptLang: 'español', promptOnly: 'Responde únicamente en español.',
+  },
+};
+
+let currentLang = 'ja';
+
+function setLang(lang) {
+  currentLang = lang;
+  const t = LANGS[lang];
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.lang-btn[onclick="setLang('' + lang + '')"]').classList.add('active');
+
+  // Header
+  document.querySelector('.header h1').textContent = t.title;
+  document.querySelector('.header p').textContent = t.subtitle;
+
+  // Location card
+  document.querySelector('.location-card-title').textContent = t.locTitle;
+  document.querySelector('.location-card-desc').textContent = t.locDesc;
+  document.querySelector('.btn-allow').textContent = t.locAllow;
+  document.querySelector('.btn-skip').textContent = t.locSkip;
+
+  // Steps
+  document.querySelector('#step-date h2').textContent = t.stepDate;
+  document.querySelector('#step-group h2').textContent = t.stepGroup;
+  document.querySelector('#step-mood h2').textContent = t.stepMood;
+  document.querySelector('#step-time h2').textContent = t.stepTime;
+  document.querySelector('#step-budget h2').textContent = t.stepBudget;
+
+  // Date cards
+  const dateCards = document.querySelectorAll('#grid-date .card');
+  dateCards[0].querySelector('.label').textContent = t.today;
+  dateCards[1].querySelector('.label').textContent = t.tomorrow;
+  dateCards[2].querySelector('.label').textContent = t.weekend;
+
+  // Date card data-val (used in state)
+  dateCards[0].dataset.val = t.today;
+  dateCards[1].dataset.val = t.tomorrow;
+  dateCards[2].dataset.val = t.weekend;
+
+  // Time cards
+  const timeCards = document.querySelectorAll('#grid-time .card');
+  timeCards[0].querySelector('.label').textContent = t.morning;
+  timeCards[1].querySelector('.label').textContent = t.afternoon;
+  timeCards[2].querySelector('.label').textContent = t.evening;
+  timeCards[3].querySelector('.label').textContent = t.allday;
+
+  // Area input
+  document.querySelector('#step-budget label').textContent = t.areaLabel;
+  document.querySelector('#location').placeholder = t.areaPlaceholder;
+
+  // Buttons
+  document.getElementById('btn-date').textContent = t.next;
+  document.getElementById('btn-group').textContent = t.next;
+  document.getElementById('btn-mood').textContent = t.next;
+  document.getElementById('btn-time').textContent = t.next;
+  document.getElementById('btn-budget').textContent = t.suggest;
+  document.querySelectorAll('.btn-ghost').forEach(b => b.textContent = t.back);
+  document.getElementById('stream-msg').textContent = t.loading;
+
+  // Result
+  document.querySelector('#step-result h2').textContent = t.resultTitle;
+  document.querySelector('.btn-row .btn-primary[onclick="resetApp()"]').textContent = t.reset;
+  document.querySelector('.share-title').textContent = t.shareTitle;
+  document.querySelector('.share-desc').textContent = t.shareDesc;
+
+  // Modal
+  document.getElementById('modal-ta').placeholder = t.questionPlaceholder;
+  document.getElementById('modal-send').textContent = t.questionSend;
+}
+
+function T(key) { return LANGS[currentLang][key] || LANGS['ja'][key] || key; }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
