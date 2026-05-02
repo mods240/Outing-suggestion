@@ -527,6 +527,8 @@ async function fetchSuggestions() {
   const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
   const wx = state.wx[kmap[state.date]];
   const wxStr = wx ? (WX_LABEL[wx.code]||'不明')+'・最高'+wx.max+'°・降水確率'+wx.rain+'%' : '不明';
+  const geoArea = (state.geo.name && state.geo.name !== '大阪') ? state.geo.name+'周辺' : null;
+  const areaStr = loc || geoArea || '指定なし（日本国内）';
 
   const prompt =
     'あなたはおでかけ提案の専門家です。以下の条件でおでかけ先を3つ提案してください。\n'+
@@ -538,8 +540,11 @@ async function fetchSuggestions() {
     '- 時間帯: '+state.time+'\n'+
     '- 予算（ひとりあたり）: '+state.budget+'\n'+
     '- 季節: '+SEASON+'\n'+
-    '- エリア: '+(loc||'指定なし（日本国内）')+'\n\n'+
-    '天気を考慮して提案してください（雨なら屋内寄りなど）。\n'+
+    '- エリア: '+areaStr+'\n\n'+
+    '天気（'+wxStr+'）を必ず考慮してください。\n'+
+    '・雨・強雨の場合は屋内スポットを中心に提案し、descriptionに「雨でも楽しめる理由」を自然に含めてください。\n'+
+    '・晴れ・快晴の場合は屋外スポットも積極的に提案し、descriptionに「晴れだからこそ楽しい理由」を自然に含めてください。\n'+
+    '・曇りや不安定な天気の場合は屋内・屋外どちらも提案しつつ、tipに天気への対策を含めてください。\n'+
     '以下のJSON配列のみ返してください。説明・前置き・コードブロック記号は不要です。\n'+
     '[{"name":"場所名","type":"カテゴリ","description":"魅力と'+state.group+'で行くポイント（80字以内）","tip":"'+state.group+'ならではの楽しみ方（40字以内）","vibes":["タグ1","タグ2","タグ3"],"bestTime":"おすすめ時間帯（20字以内）"}]';
 
@@ -600,8 +605,25 @@ function renderResults(list) {
   const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
   const wx = state.wx[kmap[state.date]];
   const wxLine = wx ? (WX_ICON[wx.code]||'')+'&nbsp;'+(WX_LABEL[wx.code]||'')+'&nbsp;'+wx.max+'°&nbsp;(降水'+wx.rain+'%)' : '';
+  // 天気コメント生成
+  let wxComment = '';
+  if (wx) {
+    const code = wx.code;
+    const rain = wx.rain;
+    if ([61,63,65,80,81,82,95,96,99].includes(code) || rain >= 70) {
+      wxComment = '☂️ 雨予報なので屋内スポット中心にご提案！';
+    } else if ([51,53,55].includes(code) || rain >= 40) {
+      wxComment = '🌂 雨の可能性あり。念のため屋内も確認を！';
+    } else if ([0,1].includes(code) && rain < 20) {
+      wxComment = '☀️ 絶好のおでかけ日和！屋外も楽しめます';
+    } else if ([2,3].includes(code)) {
+      wxComment = '🌤️ まずまずの天気。お出かけ楽しんで！';
+    }
+  }
+
   document.getElementById('result-tags').innerHTML =
     '<strong>'+state.date+'</strong>&nbsp;'+wxLine+'<br>'+
+    (wxComment ? '<span style="color:var(--accent);font-size:12px;font-weight:700;">'+wxComment+'</span><br>' : '')+
     state.group+' · '+state.mood+' · '+state.time+' · '+state.budget+' · '+SEASON;
 
   const c = document.getElementById('suggestions-list'); c.innerHTML='';
