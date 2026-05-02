@@ -235,6 +235,29 @@
   .search-link-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-link-url  { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 
+  /* Share buttons */
+  .share-section {
+    margin-top: 20px;
+    background: rgba(240,165,0,0.05);
+    border: 1px solid rgba(240,165,0,0.2);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .share-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+  .share-desc  { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+  .share-btns  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .share-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 8px; border-radius: 10px; border: none;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer; text-decoration: none; transition: all 0.2s;
+  }
+  .share-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+  .share-x    { background: #000; color: #fff; }
+  .share-line { background: #06C755; color: #fff; }
+  .share-fb   { background: #1877F2; color: #fff; }
+  .share-copy { background: var(--surface); border: 1px solid var(--border) !important; color: var(--text); }
+
   /* Ad */
   .ad-banner { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--bg); border-top: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 6px 0 10px; }
   .ad-label  { font-size: 9px; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 4px; }
@@ -379,6 +402,18 @@
     <div id="suggestions-list"></div>
     <div class="btn-row" style="margin-top:20px">
       <button class="btn btn-primary" onclick="resetApp()">🔄 もう一度探す</button>
+    </div>
+
+    <!-- Share section -->
+    <div class="share-section" id="share-section" style="display:none">
+      <div class="share-title">📣 行ってきた！をシェア</div>
+      <div class="share-desc">写真と一緒に投稿して、おでかけの思い出をシェアしよう！</div>
+      <div class="share-btns">
+        <a class="share-btn share-x" id="share-x" href="#" target="_blank" rel="noopener">𝕏 Xでシェア</a>
+        <a class="share-btn share-line" id="share-line" href="#" target="_blank" rel="noopener">💬 LINEで送る</a>
+        <a class="share-btn share-fb" id="share-fb" href="#" target="_blank" rel="noopener">📘 Facebookで</a>
+        <button class="share-btn share-copy" onclick="copyShareText()">📋 テキストをコピー</button>
+      </div>
     </div>
     <div id="saved-section" class="saved-section" style="display:none">
       <h3>❤️ 気になる場所</h3>
@@ -646,6 +681,7 @@ function renderResults(list) {
   document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
   document.getElementById('step-result').classList.add('active');
   document.querySelectorAll('.dot').forEach(d=>{d.classList.add('done');d.classList.remove('active');});
+  updateShareLinks();
   window.scrollTo(0,0);
 }
 
@@ -745,11 +781,53 @@ function resetApp() {
   document.getElementById('location').value='';
   document.getElementById('error-msg').innerHTML='';
   document.getElementById('saved-section').style.display='none';
+  document.getElementById('share-section').style.display='none';
   // リセット時は天気カードをそのまま維持（再許可は不要）
   if (document.getElementById('weather-card').style.display !== 'none') {
     showWeather('today');
   }
   goStep(0);
+}
+
+// ── Share ────────────────────────────────────────────────
+function buildShareText(spotName) {
+  const kmap = {'今日':'today','明日':'tomorrow','今週末':'weekend'};
+  const wx = state.wx[kmap[state.date]];
+  const wxLabel = wx ? (WX_LABEL[wx.code]||'') : '';
+  const tags = '#今日どこいこう #おでかけ #行ってきた';
+  const url = 'https://outing-suggestion.vercel.app';
+  return '🗺️「' + spotName + '」に行ってきました！\n' +
+    (wxLabel ? wxLabel + '・' : '') +
+    state.group + '・' + state.time + '・' + state.budget + '\n\n' +
+    'AIがおでかけ先を提案してくれるアプリで見つけました👇\n' +
+    url + '\n' + tags;
+}
+
+function updateShareLinks() {
+  const first = state.suggestions[0];
+  if (!first) return;
+  const text = buildShareText(first.name);
+  const encoded = encodeURIComponent(text);
+  const url = encodeURIComponent('https://outing-suggestion.vercel.app');
+
+  document.getElementById('share-x').href =
+    'https://twitter.com/intent/tweet?text=' + encoded;
+  document.getElementById('share-line').href =
+    'https://social-plugins.line.me/lineit/share?url=' + url + '&text=' + encoded;
+  document.getElementById('share-fb').href =
+    'https://www.facebook.com/sharer/sharer.php?u=' + url + '&quote=' + encoded;
+  document.getElementById('share-section').style.display = 'block';
+}
+
+function copyShareText() {
+  const first = state.suggestions[0];
+  if (!first) return;
+  const text = buildShareText(first.name);
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.share-copy');
+    btn.textContent = '✅ コピーしました！';
+    setTimeout(() => btn.textContent = '📋 テキストをコピー', 2000);
+  });
 }
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
