@@ -291,11 +291,13 @@
   <!-- Step 1: Group -->
   <div class="step" id="step-group">
     <h2>だれと行く？</h2>
-    <div class="grid" id="grid-group">
+    <div class="grid grid-3" id="grid-group">
       <div class="card" data-val="ひとりで"     onclick="selectCard(this,'group')"><span class="emoji">🧍</span><span class="label">ひとりで</span><span class="sub">自分のペースで</span></div>
       <div class="card" data-val="カップル"     onclick="selectCard(this,'group')"><span class="emoji">💑</span><span class="label">カップル</span><span class="sub">ふたりで</span></div>
       <div class="card" data-val="家族・子連れ"  onclick="selectCard(this,'group')"><span class="emoji">👨‍👩‍👧</span><span class="label">家族・子連れ</span><span class="sub">みんなで</span></div>
       <div class="card" data-val="友達グループ"  onclick="selectCard(this,'group')"><span class="emoji">👫</span><span class="label">友達グループ</span><span class="sub">わいわい</span></div>
+      <div class="card" data-val="お父さんと一緒に" onclick="selectCard(this,'group')"><span class="emoji">👨</span><span class="label">お父さんと</span><span class="sub">子ども目線で</span></div>
+      <div class="card" data-val="お母さんと一緒に" onclick="selectCard(this,'group')"><span class="emoji">👩</span><span class="label">お母さんと</span><span class="sub">子ども目線で</span></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="goStep(0)">← 戻る</button>
@@ -545,52 +547,16 @@ async function fetchSuggestions() {
     const res = await fetch('/api/chat', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        stream:true,
-        messages:[{role:'user',content:prompt}]
-      })
+      body: JSON.stringify({ messages:[{role:'user',content:prompt}] })
     });
     if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'APIエラー '+res.status); }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let accumulated = '';
-    let shownCount = 0;
-
-    while (true) {
-      const {done, value} = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, {stream:true});
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') continue;
-        try {
-          const evt = JSON.parse(data);
-          if (evt.type === 'content_block_delta' && evt.delta?.text) {
-            accumulated += evt.delta.text;
-            // 新しいスポットが見つかったら即座にプレビュー表示
-            const shown = tryShowStreamCards(accumulated, shownCount);
-            if (shown > shownCount) {
-              shownCount = shown;
-              if (shownCount === 1) {
-                document.getElementById('stream-spinner').style.display = 'none';
-                document.getElementById('stream-msg').textContent = '提案を生成中…';
-              }
-            }
-          }
-        } catch(e) {}
-      }
-    }
-
-    // 最終パース
-    let js = accumulated;
-    const f = accumulated.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) js=f[1];
-    else { const a = accumulated.match(/\[[\s\S]*\]/); if (a) js=a[0]; }
-    let list; try { list=JSON.parse(js.trim()); } catch(e){ throw new Error('JSONパース失敗'); }
+    const data = await res.json();
+    const raw = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('');
+    if (!raw) throw new Error('レスポンスが空です');
+    let js = raw;
+    const f = raw.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) js=f[1];
+    else { const a = raw.match(/\[[\s\S]*\]/); if (a) js=a[0]; }
+    let list; try { list=JSON.parse(js.trim()); } catch(e){ throw new Error('JSONパース失敗: '+raw.slice(0,100)); }
     if (!Array.isArray(list)||!list.length) throw new Error('提案リストが空です');
     state.suggestions = list;
     renderResults(list);
